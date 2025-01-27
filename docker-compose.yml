@@ -1,0 +1,130 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: assignment-postgres-1
+    hostname: assignment-postgres-1
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: new_password
+      POSTGRES_DB: library
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "library"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka-1:
+    image: confluentinc/cp-kafka:7.0.0
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka-1:9092,EXTERNAL://localhost:9093
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9092"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka-2:
+    image: confluentinc/cp-kafka:7.0.0
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka-2:9094,EXTERNAL://localhost:9095
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9094,EXTERNAL://0.0.0.0:9095
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9094:9094"
+      - "9095:9095"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9094"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka-3:
+    image: confluentinc/cp-kafka:7.0.0
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://kafka-3:9096,EXTERNAL://localhost:9097
+      KAFKA_LISTENERS: INSIDE://0.0.0.0:9096,EXTERNAL://0.0.0.0:9097
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+    ports:
+      - "9096:9096"
+      - "9097:9097"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9096"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_LOG4J_LOGGERS: "org.apache.zookeeper=DEBUG"
+    ports:
+      - "2181:2181"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  app:
+    build: .
+    container_name: assignment-app-1
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://assignment-postgres-1:5432/library
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: new_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9094,kafka-3:9096
+    depends_on:
+      - postgres
+      - kafka-1
+      - kafka-2
+      - kafka-3
+      - zookeeper
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
